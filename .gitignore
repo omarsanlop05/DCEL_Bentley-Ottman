@@ -1,0 +1,53 @@
+# =========================
+# Python
+# =========================
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compiled extensions
+*.so
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+
+# Unit test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Type checkers
+.mypy_cache/
+.pyre/
+.ruff_cache/
+
+# =========================
+# PyCharm / IntelliJ
+# =========================
+
+.idea/
+*.iml
+
+# =========================
+# OS files
+# =========================
+
+.DS_Store
+Thumbs.db

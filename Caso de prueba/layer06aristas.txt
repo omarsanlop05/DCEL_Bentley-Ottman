@@ -1,0 +1,3 @@
+Nombre  Origen  Pareja  Cara    Sigue   Antes
+s6_1    p6_1    s6_1b   f6_1    s6_1b   s6_1b
+s6_1b   p6_2    s6_1    f0      s6_1    s6_1

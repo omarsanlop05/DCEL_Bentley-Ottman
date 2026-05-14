@@ -1,0 +1,9 @@
+Nombre  Origen  Pareja  Cara    Sigue   Antes
+s5_1    p5_1    s5_1b   f5_1    s5_2    s5_4
+s5_2    p5_2    s5_2b   f5_1    s5_3    s5_1
+s5_3    p5_3    s5_3b   f5_1    s5_4    s5_2
+s5_4    p5_4    s5_4b   f5_1    s5_1    s5_3
+s5_1b   p5_2    s5_1    f0      s5_4b   s5_2b
+s5_2b   p5_3    s5_2    f0      s5_1b   s5_3b
+s5_3b   p5_4    s5_3    f0      s5_2b   s5_4b
+s5_4b   p5_1    s5_4    f0      s5_3b   s5_1b
