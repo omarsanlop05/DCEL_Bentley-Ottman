@@ -37,14 +37,16 @@ Ahora se deben indentificar las caras, y para esto se utilizando los ciclos.
 """
 Algoritmo fusión de listas de aristas / fusión de caras.
 
-ESTADO ACTUAL → Paso 2:
-  ✅ Paso 1 – Buscar intersecciones (Bentley-Ottmann ya funcionando)
-  ✅ Paso 2 – Cargar DCEL unificada (con prefijos por capa para evitar
-              colisiones de nombres) y mapear cada SegmentoGeométrico
-              a su(s) semiarista(s) DCEL correspondiente(s)
-  🔜 Paso 3 – Subdivisión: primas y primas-primas por cada intersección
-  🔜 Paso 4 – Ordenamiento polar + reasignación de siguiente/anterior/pareja
-  🔜 Paso 5 – Rearme de caras
+ESTADO ACTUAL → Paso 3 (corregido):
+  ✅ Paso 1 – Buscar intersecciones (Bentley-Ottmann)
+  ✅ Paso 2 – DCEL unificada con prefijos por capa + mapeo segmento→arista
+  ✅ Paso 3 – Subdivisión con DOS PASADAS:
+              Pasada 1: crear X, primas y pp, registrar mapa global de
+                        reemplazos (arista_eliminada → su_primo).
+              Pasada 2: asignar siguiente/anterior usando el mapa global,
+                        para que referencias a aristas ya eliminadas en
+                        otra intersección se resuelvan correctamente.
+  🔜 Paso 4 – Rearme de caras
 """
 
 from Figuras import *
@@ -58,14 +60,14 @@ import matplotlib.pyplot as plt
 # ─────────────────────────────────────────────────────────────
 # Estado global del barrido
 # ─────────────────────────────────────────────────────────────
-eventos            = []
-eventos_por_punto  = {}
-vistos             = set()
-intersecciones     = {}
-arbol              = ArbolBarrido()
+eventos           = []
+eventos_por_punto = {}
+vistos            = set()
+intersecciones    = {}
+arbol             = ArbolBarrido()
 
 # ─────────────────────────────────────────────────────────────
-# Bentley-Ottmann (sin cambios)
+# PASO 1 – Bentley-Ottmann
 # ─────────────────────────────────────────────────────────────
 
 def encuentraEventos(sI, sD, p):
@@ -174,81 +176,52 @@ def encuentraIntersecciones(segmentos_lista):
     return intersecciones
 
 # ─────────────────────────────────────────────────────────────
-# PASO 2 – Cargar DCEL unificada con prefijos por capa
+# PASO 2 – DCEL unificada con prefijos por capa
 # ─────────────────────────────────────────────────────────────
 
 def cargar_dcel_unificada(archivos):
     """
     Carga la DCEL de cada capa y las combina en diccionarios globales.
-
-    PROBLEMA RESUELTO: capas distintas pueden tener vértices/aristas con el
-    mismo nombre (p.ej. 'p1' en layer01 y 'p1' en layer03 son puntos distintos).
-    Solución: prefijar cada nombre con 'L{i}_' según el índice de la capa.
-
-    El renombrado se propaga a todas las referencias internas de la DCEL
-    (origen, antiarista, cara, siguiente, anterior, arista_adyacente).
+    Prefixa cada nombre con 'L{i}_' para evitar colisiones entre capas.
     """
-    vertices_g = {}
-    aristas_g  = {}
-    caras_g    = {}
+    vertices_g, aristas_g, caras_g = {}, {}, {}
 
     for layer_id, ruta in enumerate(archivos):
         v, a, c = definirObjetos(ruta)
         pre = f"L{layer_id}_"
 
-        # 1. Renombrar nombres propios
         for obj in list(v.values()) + list(a.values()) + list(c.values()):
             obj.nombre = pre + obj.nombre
 
-        # 2. Insertar en dicts globales con nueva clave
-        for nombre, vertice in v.items():
-            vertices_g[pre + nombre] = vertice
-        for nombre, arista in a.items():
-            aristas_g[pre + nombre] = arista
-        for nombre, cara in c.items():
-            caras_g[pre + nombre] = cara
+        for nombre, vertice in v.items(): vertices_g[pre + nombre] = vertice
+        for nombre, arista  in a.items(): aristas_g [pre + nombre] = arista
+        for nombre, cara    in c.items(): caras_g   [pre + nombre] = cara
 
-        # 3. Actualizar referencias internas (los objetos ya tienen nombre prefijado,
-        #    así que buscamos directamente en los dicts globales)
         for arista in a.values():
-            if arista.origen:
-                arista.origen     = vertices_g.get(arista.origen.nombre)
-            if arista.antiarista:
-                arista.antiarista = aristas_g.get(arista.antiarista.nombre)
-            if arista.cara:
-                arista.cara       = caras_g.get(arista.cara.nombre)
-            if arista.siguiente:
-                arista.siguiente  = aristas_g.get(arista.siguiente.nombre)
-            if arista.anterior:
-                arista.anterior   = aristas_g.get(arista.anterior.nombre)
+            if arista.origen:     arista.origen     = vertices_g.get(arista.origen.nombre)
+            if arista.antiarista: arista.antiarista = aristas_g .get(arista.antiarista.nombre)
+            if arista.cara:       arista.cara       = caras_g   .get(arista.cara.nombre)
+            if arista.siguiente:  arista.siguiente  = aristas_g .get(arista.siguiente.nombre)
+            if arista.anterior:   arista.anterior   = aristas_g .get(arista.anterior.nombre)
 
         for vertice in v.values():
             if vertice.arista_adyacente:
                 vertice.arista_adyacente = aristas_g.get(vertice.arista_adyacente.nombre)
 
         for cara in c.values():
-            cara.aristas_internas = [
-                aristas_g.get(ar.nombre, ar) for ar in cara.aristas_internas
-            ]
+            cara.aristas_internas = [aristas_g.get(ar.nombre, ar) for ar in cara.aristas_internas]
             if cara.aristas_externas:
                 cara.aristas_externas = aristas_g.get(cara.aristas_externas.nombre)
 
-    print(f"  DCEL unificada: {len(vertices_g)} vértices, "
-          f"{len(aristas_g)} aristas, {len(caras_g)} caras")
+    print(f"  {len(vertices_g)} vértices, {len(aristas_g)} aristas, {len(caras_g)} caras")
     return vertices_g, aristas_g, caras_g
 
 
 def mapear_segmentos_a_aristas(segmentos_geo, aristas_g):
-    """
-    Para cada SegmentoGeométrico encuentra las semiaristas DCEL que
-    representan geométricamente ese mismo segmento (en cualquier dirección).
-
-    Retorna:  id(segmento) → [Arista, ...]
-    """
+    """Conecta cada SegmentoGeométrico con sus semiaristas DCEL."""
     def pts_iguales(p1, p2):
         return math.isclose(p1.x, p2.x, abs_tol=1e-7) and \
                math.isclose(p1.y, p2.y, abs_tol=1e-7)
-
     mapa = {}
     for seg in segmentos_geo:
         encontradas = []
@@ -259,30 +232,189 @@ def mapear_segmentos_a_aristas(segmentos_geo, aristas_g):
                 (pts_iguales(orig, seg.p2) and pts_iguales(dest, seg.p1))):
                 encontradas.append(arista)
         mapa[id(seg)] = encontradas
-
     sin_match = [s for s in segmentos_geo if not mapa[id(s)]]
-    print(f"  Segmentos mapeados a DCEL: "
-          f"{len(segmentos_geo) - len(sin_match)}/{len(segmentos_geo)}")
+    print(f"  Segmentos mapeados: {len(segmentos_geo)-len(sin_match)}/{len(segmentos_geo)}")
     if sin_match:
-        print(f"  ⚠️  Sin match ({len(sin_match)}):")
         for s in sin_match:
-            print(f"      Layer {s.layer_id}: {s.p1} → {s.p2}")
+            print(f"    ⚠️  Layer {s.layer_id}: {s.p1}→{s.p2} sin match")
     return mapa
 
 
 def filtrar_intersecciones_entre_capas(diccionario_intersecciones):
-    """
-    Conserva solo intersecciones entre segmentos de capas DISTINTAS.
-    Los vértices compartidos dentro de una misma capa ya están en la DCEL.
-    """
+    """Conserva solo los puntos de intersección entre capas distintas."""
     reales = {
-        clave: info
-        for clave, info in diccionario_intersecciones.items()
-        if len(set(s.layer_id for s in info["segmentos"])) > 1
+        k: v for k, v in diccionario_intersecciones.items()
+        if len(set(s.layer_id for s in v["segmentos"])) > 1
     }
     print(f"  Intersecciones entre capas: {len(reales)} "
           f"(de {len(diccionario_intersecciones)} totales)")
     return reales
+
+# ─────────────────────────────────────────────────────────────
+# PASO 3 – Subdivisión en dos pasadas
+# ─────────────────────────────────────────────────────────────
+
+_contador_x = [0]
+_contador_a = [0]
+
+
+def _resolver(arista, mapa_eliminadas_a_primo, mapa_eliminadas_a_pp):
+    """
+    Dado un objeto Arista (posiblemente eliminado), devuelve la arista
+    activa que lo reemplaza, o la misma si no fue eliminada.
+    Útil para resolver referencias que quedaron apuntando a eliminadas.
+    """
+    nombre = arista.nombre if arista else None
+    if nombre in mapa_eliminadas_a_primo:
+        return mapa_eliminadas_a_primo[nombre]   # reemplazado por su primo
+    return arista
+
+
+def subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas_g):
+    """
+    Subdivide todas las intersecciones en DOS PASADAS para resolver
+    correctamente las referencias cruzadas entre intersecciones distintas.
+
+    PASADA 1: por cada intersección, crear X + primas + pp.
+              Registrar en mapas globales:
+                mapa_a_primo[orig]   → primo  (para resolver siguiente de pp)
+                mapa_a_pp[orig]      → pp     (para resolver anterior de primo)
+              Anotar los grupos para la segunda pasada.
+
+    PASADA 2: con los mapas globales completos, asignar siguiente y anterior
+              resolviendo cualquier referencia a aristas ya eliminadas.
+    """
+    # Mapas globales de reemplazo (nombre_orig → objeto_activo)
+    mapa_a_primo = {}   # arista eliminada → su primo  (lo que llega  a X)
+    mapa_a_pp    = {}   # arista eliminada → su pp     (lo que sale de X)
+
+    todos_los_grupos = []   # lista de (grupos_ordenados, sig_orig[], ant_orig[])
+
+    # ── PASADA 1: crear vértices, primas y pp; registrar mapas ──────────
+    for clave, info in intersecciones_reales.items():
+        xi, yi = info["punto"].x, info["punto"].y
+
+        # Reunir semiaristas únicas
+        semiaristas_orig = []
+        vistas = set()
+        for seg in info["segmentos"]:
+            for arista in mapa_seg_arista.get(id(seg), []):
+                for a in (arista, arista.antiarista):
+                    if a and a.nombre not in vistas:
+                        semiaristas_orig.append(a)
+                        vistas.add(a.nombre)
+
+        if not semiaristas_orig:
+            continue
+
+        # Crear vértice X
+        _contador_x[0] += 1
+        vx = Vertice(f"X{_contador_x[0]}", Punto(xi, yi))
+        vertices_g[vx.nombre] = vx
+
+        # Crear primas y pp, calcular ángulo polar de cada primo
+        grupos = []
+        for a in semiaristas_orig:
+            _contador_a[0] += 1; nom_p  = f"{a.nombre}_p{_contador_a[0]}"
+            _contador_a[0] += 1; nom_pp = f"{a.nombre}_pp{_contador_a[0]}"
+
+            a_p  = Arista(nom_p);  a_p.cara  = a.cara
+            a_pp = Arista(nom_pp); a_pp.cara = a.cara
+            aristas_g[nom_p]  = a_p
+            aristas_g[nom_pp] = a_pp
+
+            a_p.origen  = a.origen
+            a_pp.origen = vx
+
+            ox, oy = a.origen.pt.x, a.origen.pt.y
+            angulo = math.atan2(oy - yi, ox - xi)
+
+            grupos.append({
+                "orig":     a,
+                "p":        a_p,
+                "pp":       a_pp,
+                "angulo":   angulo,
+                "sig_orig": a.siguiente,   # snapshot antes de eliminar
+                "ant_orig": a.anterior,
+            })
+
+            # Registrar en mapas globales
+            mapa_a_primo[a.nombre] = a_p
+            mapa_a_pp   [a.nombre] = a_pp
+
+        # Ordenar CCW y asignar antiaristas (solo dependen del grupo local)
+        grupos.sort(key=lambda g: g["angulo"])
+        mapa_local = {g["orig"].nombre: g for g in grupos}
+
+        for g in grupos:
+            pareja_orig = g["orig"].antiarista
+            g_pareja    = mapa_local.get(pareja_orig.nombre) if pareja_orig else None
+            if g_pareja:
+                g["p"].antiarista  = g_pareja["pp"]
+                g["pp"].antiarista = g_pareja["p"]
+            else:
+                g["p"].antiarista  = g["pp"]
+                g["pp"].antiarista = g["p"]
+
+        # Arista incidente de X
+        vx.arista_adyacente = grupos[0]["pp"]
+
+        # Actualizar arista_adyacente de vértices de origen
+        for g in grupos:
+            v_orig = g["p"].origen
+            if v_orig and v_orig.arista_adyacente and \
+               v_orig.arista_adyacente.nombre == g["orig"].nombre:
+                v_orig.arista_adyacente = g["p"]
+
+        # Eliminar originales del dict de aristas
+        for g in grupos:
+            aristas_g.pop(g["orig"].nombre, None)
+
+        todos_los_grupos.append(grupos)
+
+    # ── PASADA 2: asignar siguiente y anterior con mapas globales ───────
+    for grupos in todos_los_grupos:
+        N = len(grupos)
+        for i, g in enumerate(grupos):
+            sig_g = grupos[(i + 1) % N]
+            ant_g = grupos[(i - 1) % N]
+
+            # siguiente(primo) = pp del siguiente grupo en CCW [§5.3]
+            g["p"].siguiente = sig_g["pp"]
+
+            # siguiente(pp) = siguiente original, resolviendo si fue eliminado [§5.3]
+            sig_orig = g["sig_orig"]
+            if sig_orig and sig_orig.nombre in mapa_a_primo:
+                g["pp"].siguiente = mapa_a_primo[sig_orig.nombre]
+            elif sig_orig:
+                g["pp"].siguiente = sig_orig
+            else:
+                g["pp"].siguiente = sig_g["pp"]
+
+            # anterior(primo) = anterior original, resolviendo si fue eliminado [§5.4]
+            ant_orig = g["ant_orig"]
+            if ant_orig and ant_orig.nombre in mapa_a_pp:
+                g["p"].anterior = mapa_a_pp[ant_orig.nombre]
+            elif ant_orig:
+                g["p"].anterior = ant_orig
+            else:
+                g["p"].anterior = g["pp"]
+
+            # anterior(pp) = primo del grupo anterior en CCW [§5.4]
+            g["pp"].anterior = ant_g["p"]
+
+    # ── PASADA 3: limpieza global ────────────────────────────────────────
+    # Aristas que NO fueron subdivididas pueden tener siguiente/anterior
+    # apuntando a aristas que SÍ fueron eliminadas en otra intersección.
+    # Recorremos todas las aristas supervivientes y resolvemos esas refs.
+    for a in list(aristas_g.values()):
+        if a.siguiente and a.siguiente.nombre in mapa_a_primo:
+            a.siguiente = mapa_a_primo[a.siguiente.nombre]
+        if a.anterior and a.anterior.nombre in mapa_a_pp:
+            a.anterior = mapa_a_pp[a.anterior.nombre]
+
+    print(f"  {_contador_x[0]} vértices X creados")
+    print(f"  DCEL resultante: {len(vertices_g)} vértices, {len(aristas_g)} aristas")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -293,13 +425,12 @@ if __name__ == "__main__":
 
     archivos = ["./layers/layer0" + str(i) for i in range(1, 6)]
 
-    # ── Paso 1: Barrido geométrico ───────────────────────────
-    print("── Paso 1: Extracción de segmentos e intersecciones ──")
+    # ── Paso 1 ───────────────────────────────────────────────
+    print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")
     segmentos_globales = extraer_todos_los_segmentos(archivos)
-    print(f"  Segmentos extraídos: {len(segmentos_globales)}")
-
     diccionario_intersecciones = encuentraIntersecciones(segmentos_globales)
-    print(f"  Puntos de intersección encontrados: {len(diccionario_intersecciones)}")
+    print(f"  {len(segmentos_globales)} segmentos, "
+          f"{len(diccionario_intersecciones)} puntos de intersección")
 
     for clave, info in diccionario_intersecciones.items():
         punto = info["punto"]
@@ -308,31 +439,30 @@ if __name__ == "__main__":
                 if punto not in seg.intersecciones:
                     seg.intersecciones.append(punto)
 
-    # ── Paso 2: DCEL unificada ───────────────────────────────
-    print("\n── Paso 2: Carga y unificación de la DCEL ──")
+    # ── Paso 2 ───────────────────────────────────────────────
+    print("\n── Paso 2: DCEL unificada ──")
     vertices_g, aristas_g, caras_g = cargar_dcel_unificada(archivos)
-    mapa_seg_arista                 = mapear_segmentos_a_aristas(segmentos_globales, aristas_g)
-    intersecciones_reales           = filtrar_intersecciones_entre_capas(diccionario_intersecciones)
+    mapa_seg_arista       = mapear_segmentos_a_aristas(segmentos_globales, aristas_g)
+    intersecciones_reales = filtrar_intersecciones_entre_capas(diccionario_intersecciones)
 
-    # Verificación: mostrar aristas DCEL involucradas
-    aristas_a_subdividir = set()
-    for info in intersecciones_reales.values():
-        for seg in info["segmentos"]:
-            for arista in mapa_seg_arista.get(id(seg), []):
-                aristas_a_subdividir.add(arista.nombre)
+    # ── Paso 3 ───────────────────────────────────────────────
+    print("\n── Paso 3: Subdivisión de aristas (dos pasadas) ──")
+    subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas_g)
 
-    print(f"\n  Semiaristas DCEL a subdividir: {len(aristas_a_subdividir)}")
-
-    # Verificación de integridad de la DCEL unificada
+    # Verificación de integridad
     print("\n  Verificación de integridad:")
     errores = 0
     for nombre, a in aristas_g.items():
-        if a.origen is None:       print(f"    ⚠️  {nombre}: origen None");       errores += 1
-        if a.antiarista is None:   print(f"    ⚠️  {nombre}: antiarista None");   errores += 1
-        if a.siguiente is None:    print(f"    ⚠️  {nombre}: siguiente None");    errores += 1
-        if a.anterior is None:     print(f"    ⚠️  {nombre}: anterior None");     errores += 1
+        for campo, val in [("origen",     a.origen),
+                           ("antiarista", a.antiarista),
+                           ("siguiente",  a.siguiente),
+                           ("anterior",   a.anterior)]:
+            if val is None:
+                print(f"    ⚠️  {nombre}.{campo} = None"); errores += 1
+            elif campo != "origen" and hasattr(val, 'nombre') and val.nombre not in aristas_g:
+                print(f"    ⚠️  {nombre}.{campo} → '{val.nombre}' no existe"); errores += 1
     if errores == 0:
-        print("    ✅ Todas las referencias de la DCEL son válidas")
+        print("    ✅ Todas las referencias son válidas")
     else:
         print(f"    ❌ {errores} referencias inválidas")
 
@@ -341,24 +471,34 @@ if __name__ == "__main__":
     colores = ['blue', 'green', 'orange', 'purple', 'brown']
 
     for seg in segmentos_globales:
-        color = colores[seg.layer_id % len(colores)]
         ax.plot([seg.p1.x, seg.p2.x], [seg.p1.y, seg.p2.y],
-                color=color, linewidth=1.5, alpha=0.7,
-                label=f"Layer {seg.layer_id + 1}")
-        for pt in seg.intersecciones:
-            ax.plot(pt.x, pt.y, 'ro', markersize=5, zorder=5)
+                color=colores[seg.layer_id % len(colores)],
+                linewidth=2.5, alpha=0.18, label=f"Layer {seg.layer_id+1}")
+
+    dibujadas = set()
+    for nombre, a in aristas_g.items():
+        if nombre in dibujadas: continue
+        if not a.antiarista or a.antiarista.nombre not in aristas_g: continue
+        p1 = a.origen.pt
+        p2 = a.antiarista.origen.pt
+        ax.plot([p1.x, p2.x], [p1.y, p2.y], 'k-', linewidth=1.2, alpha=0.9, zorder=3)
+        dibujadas.add(nombre)
+        dibujadas.add(a.antiarista.nombre)
 
     for v in vertices_g.values():
-        ax.plot(v.pt.x, v.pt.y, 'ks', markersize=5, zorder=6)
-        ax.text(v.pt.x + 0.1, v.pt.y + 0.1, v.nombre, fontsize=6, color='#333')
+        es_x = v.nombre.startswith('X')
+        ax.plot(v.pt.x, v.pt.y, 'o',
+                color='red' if es_x else 'black',
+                markersize=6 if es_x else 3, zorder=5)
+        if es_x:
+            ax.text(v.pt.x + 0.1, v.pt.y + 0.1, v.nombre, fontsize=6, color='red')
 
     handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys(), loc='upper right')
-
+    ax.legend(dict(zip(labels, handles)).values(),
+              dict(zip(labels, handles)).keys(), loc='upper right')
     ax.set_aspect('equal')
     ax.grid(True, linestyle='--', alpha=0.4)
-    plt.title("Paso 2 – DCEL unificada + intersecciones entre capas (puntos rojos)")
+    plt.title("Paso 3 – DCEL subdividida en intersecciones (vértices X en rojo)")
     plt.tight_layout()
-    plt.savefig("paso2_dcel_unificada.png", dpi=150)
+    #plt.savefig("paso3_subdivision.png", dpi=150)
     plt.show()
