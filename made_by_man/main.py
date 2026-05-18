@@ -33,39 +33,8 @@ Ahora se deben indentificar las caras, y para esto se utilizando los ciclos.
 5. Se actualiza cada arista con cara a la que pertenece
 
 """
-"""
-Algoritmo fusión de listas de aristas / fusión de caras — MAPOVERLAY (De Berg §2.3)
-
-ESTADO ACTUAL → Paso 4 completo:
-  ✅ Paso 1 – Intersecciones (Bentley-Ottmann)
-  ✅ Paso 2 – DCEL unificada con prefijos por capa
-  ✅ Paso 3 – Subdivisión con pre-fragmentación por arista:
-              Cada arista que pasa por N intersecciones se divide en N+1
-              fragmentos de una sola vez (ordenados por t), eliminando el
-              bug donde mapa_a_primo solo guardaba el último primo.
-              Las antiaristas se asignan emparejando fragmentos en sentido
-              inverso. La Fase C usa frag_de para resolver correctamente
-              las referencias de aristas no subdivididas.
-  ✅ Paso 4 – Rearme de caras (De Berg §2.3 pasos 4-7):
-              4a. Extraer ciclos recorriendo siguiente
-              4b. Clasificar exterior/interior (producto cruzado en vértice más izquierdo)
-              4c. Construir grafo G: hole → ciclo a su izquierda
-              4d. Componentes conexas de G → una cara por componente
-              4e. Asignar campo .cara a cada semiarista
-"""
-
-import math
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 
 from Figuras import *
-from Graficacion import *
-from ArbolBarrido import *
-from Segmentacion import *
-import heapq
-
-from Figuras import *
-from Graficacion import *
 from ArbolBarrido import *
 from Segmentacion import *
 import heapq
@@ -353,7 +322,7 @@ def reconstruir_overlay_y_caras(segmentos_globales):
 # EJECUCIÓN PRINCIPAL
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    archivos = ["./layers/layer0" + str(i) for i in range(1, 6)]
+    archivos = ["./PaisajeLowPoly_DCEL/layer0" + str(i) for i in range(1, 7)]
 
     print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")
     segmentos_globales = extraer_todos_los_segmentos(archivos)

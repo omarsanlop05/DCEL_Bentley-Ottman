@@ -265,7 +265,7 @@ def leerVertices(ruta, vertices):
 
     with open(ruta + ".vertices", "r") as f:
         for linea in f:
-            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo"):
+            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo") or linea.startswith("-"):
                 continue
 
             datos = linea.split()
@@ -287,7 +287,7 @@ def leerAristas(ruta, aristas):
 
     with open(ruta + ".aristas", "r") as f:
         for linea in f:
-            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo"):
+            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo") or linea.startswith("-"):
                 continue
 
             datos = linea.split()
@@ -318,7 +318,7 @@ def leerCaras(ruta, caras):
 
     with open(ruta + ".caras", "r") as f:
         for linea in f:
-            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo"):
+            if linea.startswith("#") or linea.strip() == "" or linea.startswith("Nombre") or linea.startswith("Archivo") or linea.startswith("-"):
                 continue
 
             datos = linea.split()
