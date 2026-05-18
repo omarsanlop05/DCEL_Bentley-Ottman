@@ -20,7 +20,7 @@ class ConstructorCaras:
         ciclos = []
 
         for aristas in self.aristas_g.values():
-            if aristas in visitadas:
+            if aristas.nombre in visitadas:
                 continue
             ciclo = []
             actual = aristas

@@ -34,6 +34,10 @@ Ahora se deben indentificar las caras, y para esto se utilizando los ciclos.
 
 """
 
+"""
+Algoritmo fusión de listas de aristas/fusión de caras.
+"""
+
 from Figuras import *
 from ArbolBarrido import *
 from Segmentacion import *
@@ -46,11 +50,12 @@ import matplotlib.cm as cm
 # ─────────────────────────────────────────────────────────────
 # Estado global del barrido
 # ─────────────────────────────────────────────────────────────
-eventos           = []
+eventos = []
 eventos_por_punto = {}
-vistos            = set()
-intersecciones    = {}
-arbol             = ArbolBarrido()
+vistos = set()
+intersecciones = {}
+arbol = ArbolBarrido()
+
 
 # ─────────────────────────────────────────────────────────────
 # PASO 1 – Bentley-Ottmann
@@ -64,7 +69,7 @@ def encuentraEventos(sI, sD, p):
         return
     inter = pts[0]
     clave = (round(inter.x, 9), round(inter.y, 9))
-    debajo          = inter.y < p.y - 1e-9
+    debajo = inter.y < p.y - 1e-9
     mismo_nivel_der = (abs(inter.y - p.y) < 1e-9 and inter.x >= p.x - 1e-9)
     if not (debajo or mismo_nivel_der):
         return
@@ -85,6 +90,7 @@ def encuentraEventos(sI, sD, p):
                 if seg not in intersecciones[clave]["segmentos"]:
                     intersecciones[clave]["segmentos"].append(seg)
 
+
 def _manejar_horizontal(seg_h):
     x_min = min(seg_h.p1.x, seg_h.p2.x)
     x_max = max(seg_h.p1.x, seg_h.p2.x)
@@ -100,6 +106,7 @@ def _manejar_horizontal(seg_h):
                     for s in [seg_h, seg]:
                         if s not in intersecciones[clave]["segmentos"]:
                             intersecciones[clave]["segmentos"].append(s)
+
 
 def procesarEvento(evento):
     p = evento.punto
@@ -120,7 +127,7 @@ def procesarEvento(evento):
     for seg in L + C:
         if arbol.buscar(seg): arbol.eliminar(seg)
     arbol.sweep_y = p.y - 1e-9
-    horizontales    = [s for s in U + C if abs(s.p1.y - s.p2.y) < 1e-9]
+    horizontales = [s for s in U + C if abs(s.p1.y - s.p2.y) < 1e-9]
     no_horizontales = [s for s in U + C if abs(s.p1.y - s.p2.y) >= 1e-9]
     for seg in no_horizontales: arbol.insertar(seg)
     for seg in horizontales:
@@ -130,18 +137,20 @@ def procesarEvento(evento):
         segs = arbol.en_orden()
         indice, sI = 0, None
         while indice < len(segs) and arbol._x_en_sweep(segs[indice]) < p.x:
-            sI = segs[indice]; indice += 1
+            sI = segs[indice];
+            indice += 1
         sD = segs[indice] if indice < len(segs) else None
         encuentraEventos(sI, sD, p)
     else:
         UC = [s for s in arbol.en_orden() if s in U + C]
         if UC:
             for i in range(len(UC) - 1):
-                encuentraEventos(UC[i], UC[i+1], p)
+                encuentraEventos(UC[i], UC[i + 1], p)
             for seg in UC:
                 izq, der = arbol.vecinos(seg)
                 if izq and izq not in UC: encuentraEventos(izq, seg, p)
                 if der and der not in UC: encuentraEventos(seg, der, p)
+
 
 def encuentraIntersecciones(segmentos_lista):
     for segmento in segmentos_lista:
@@ -161,6 +170,7 @@ def encuentraIntersecciones(segmentos_lista):
         procesarEvento(heapq.heappop(eventos))
     return intersecciones
 
+
 # ─────────────────────────────────────────────────────────────
 # NUEVO PASO 2, 3 y 4: RECONSTRUCCIÓN LIMPIA Y ALGORITMO DE CARAS
 # ─────────────────────────────────────────────────────────────
@@ -175,7 +185,6 @@ def area_con_signo(ciclo):
 
 
 def punto_en_poligono(pt, ciclo):
-    """Ray casting horizontal hacia la derecha para probar inclusión"""
     cruces = 0
     for a in ciclo:
         p1 = a.origen.pt
@@ -187,15 +196,77 @@ def punto_en_poligono(pt, ciclo):
     return cruces % 2 == 1
 
 
+def _punto_en_segmento(pt, seg, tol=1e-2):
+    import math
+    dist_num = abs(
+        (seg.p2.y - seg.p1.y) * pt.x - (seg.p2.x - seg.p1.x) * pt.y + seg.p2.x * seg.p1.y - seg.p2.y * seg.p1.x)
+    longitud = math.hypot(seg.p2.x - seg.p1.x, seg.p2.y - seg.p1.y)
+    if longitud == 0: return False
+
+    if (dist_num / longitud) < tol:
+        min_x, max_x = min(seg.p1.x, seg.p2.x), max(seg.p1.x, seg.p2.x)
+        min_y, max_y = min(seg.p1.y, seg.p2.y), max(seg.p1.y, seg.p2.y)
+        if (min_x - tol <= pt.x <= max_x + tol) and (min_y - tol <= pt.y <= max_y + tol):
+            return True
+    return False
+
+
+# MODIFICACIÓN CLAVE: Red de seguridad universal
+def preprocesar_geometria(segmentos_globales, tolerancia_decimales=2):
+    """
+    Actúa como red de seguridad obligando a revisar cruces ignorados,
+    garantizando que capas como el ARBUSTO resuelvan sus propias auto-intersecciones.
+    """
+    import itertools
+    from Figuras import Punto
+
+    # 1. Snap to grid (Alineación de geometría)
+    for seg in segmentos_globales:
+        seg.p1.x = round(seg.p1.x, tolerancia_decimales)
+        seg.p1.y = round(seg.p1.y, tolerancia_decimales)
+        seg.p2.x = round(seg.p2.x, tolerancia_decimales)
+        seg.p2.y = round(seg.p2.y, tolerancia_decimales)
+
+        for inter in seg.intersecciones:
+            inter.x = round(inter.x, tolerancia_decimales)
+            inter.y = round(inter.y, tolerancia_decimales)
+
+    # 2. Búsqueda Exhaustiva Total (Fuerza bruta para no omitir nada)
+    for sA, sB in itertools.combinations(segmentos_globales, 2):
+
+        # A. Atrapa cruces "X" que Bentley-Ottmann haya perdido
+        pts = sA.interseccion(sB)
+        if pts:
+            for p_inter in pts:
+                p_red = Punto(round(p_inter.x, tolerancia_decimales), round(p_inter.y, tolerancia_decimales))
+                if not any(p.comparar(p_red) for p in sA.intersecciones):
+                    sA.intersecciones.append(p_red)
+                if not any(p.comparar(p_red) for p in sB.intersecciones):
+                    sB.intersecciones.append(p_red)
+
+        # B. Atrapa "T-Junctions" y colineales (Punta contra Cuerpo)
+        for pt in [sB.p1, sB.p2]:
+            if not pt.comparar(sA.p1) and not pt.comparar(sA.p2):
+                if _punto_en_segmento(pt, sA):
+                    nuevo_pt = Punto(pt.x, pt.y)
+                    if not any(p.comparar(nuevo_pt) for p in sA.intersecciones):
+                        sA.intersecciones.append(nuevo_pt)
+
+        for pt in [sA.p1, sA.p2]:
+            if not pt.comparar(sB.p1) and not pt.comparar(sB.p2):
+                if _punto_en_segmento(pt, sB):
+                    nuevo_pt = Punto(pt.x, pt.y)
+                    if not any(p.comparar(nuevo_pt) for p in sB.intersecciones):
+                        sB.intersecciones.append(nuevo_pt)
+
+
 def reconstruir_overlay_y_caras(segmentos_globales):
     print("\n── Paso 2 y 3: Reconstrucción Limpia de la Topología DCEL ──")
 
-    # 1. DE-DUPLICACIÓN: Extraer sub-segmentos matemáticamente únicos
+    # 1. DE-DUPLICACIÓN MATEMÁTICA
     sub_segmentos_unicos = set()
     for seg in segmentos_globales:
-        # Puntos base + intersecciones
         pts = [seg.p1, seg.p2] + seg.intersecciones
-        # Ordenar geométricamente
         pts.sort(key=lambda p: (round(p.x, 6), round(p.y, 6)))
 
         for i in range(len(pts) - 1):
@@ -203,7 +274,6 @@ def reconstruir_overlay_y_caras(segmentos_globales):
             tA = (round(pA.x, 6), round(pA.y, 6))
             tB = (round(pB.x, 6), round(pB.y, 6))
             if tA != tB:
-                # Al meterlo ordenado al SET, las superposiciones se auto-eliminan
                 sub_segmentos_unicos.add((tA, tB) if tA < tB else (tB, tA))
 
     print(f"  > Sub-segmentos únicos filtrados: {len(sub_segmentos_unicos)}")
@@ -237,14 +307,12 @@ def reconstruir_overlay_y_caras(segmentos_globales):
 
     # 3. GRAFO RADIAL: Enlazar Next y Prev
     for v in vertices_g.values():
-        # Ordenar aristas salientes por ángulo polar (CCW)
         v.outgoing.sort(key=lambda a: math.atan2(a.antiarista.origen.pt.y - v.pt.y,
                                                  a.antiarista.origen.pt.x - v.pt.x))
         k = len(v.outgoing)
         for i in range(k):
             e_out = v.outgoing[i]
             e_in = e_out.antiarista
-            # Fórmula estricta de Map Overlay para DCEL
             e_next = v.outgoing[(i - 1) % k]
 
             e_in.siguiente = e_next
@@ -284,7 +352,6 @@ def reconstruir_overlay_y_caras(segmentos_globales):
     cara_infinita = Cara("f_infinita")
     caras_g["f_infinita"] = cara_infinita
 
-    # Preparar diccionarios de caras finitas
     for i, (ext, _) in enumerate(exteriores):
         f = Cara(f"f{i}")
         f.aristas_externas = ext[0]
@@ -292,9 +359,8 @@ def reconstruir_overlay_y_caras(segmentos_globales):
         for a in ext:
             a.cara = f
         caras_g[f.nombre] = f
-        ext[0]._cara_obj = f  # Referencia temporal rápida
+        ext[0]._cara_obj = f
 
-    # Asignar los huecos al polígono contenedor más pequeño
     for agujero, _ in agujeros:
         v_izq = min(agujero, key=lambda a: a.origen.pt.x).origen.pt
         padres_candidatos = []
@@ -304,13 +370,11 @@ def reconstruir_overlay_y_caras(segmentos_globales):
                 padres_candidatos.append((ext, area))
 
         if padres_candidatos:
-            # El padre directo es el que lo contiene pero tiene menor área
             padre_directo = min(padres_candidatos, key=lambda x: x[1])[0]
             f = padre_directo[0]._cara_obj
             f.aristas_internas.append(agujero[0])
             for a in agujero: a.cara = f
         else:
-            # Si nadie lo envuelve, pertenece a la cara infinita
             cara_infinita.aristas_internas.append(agujero[0])
             for a in agujero: a.cara = cara_infinita
 
@@ -322,14 +386,15 @@ def reconstruir_overlay_y_caras(segmentos_globales):
 # EJECUCIÓN PRINCIPAL
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    archivos = ["./PaisajeLowPoly_DCEL/layer0" + str(i) for i in range(1, 7)]
+    # Asegúrate de colocar las rutas correctas a los archivos
+    archivos = ["./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO" + str(i) for i in range(1, 3)]
 
     print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")
     segmentos_globales = extraer_todos_los_segmentos(archivos)
     diccionario_intersecciones = encuentraIntersecciones(segmentos_globales)
-    print(f"  > {len(segmentos_globales)} segmentos base, {len(diccionario_intersecciones)} ptos de cruce")
+    print(
+        f"  > {len(segmentos_globales)} segmentos base, {len(diccionario_intersecciones)} ptos de cruce hallados por Sweep-Line")
 
-    # Inyectar las intersecciones en los segmentos
     for clave, info in diccionario_intersecciones.items():
         punto = info["punto"]
         for seg in info["segmentos"]:
@@ -337,7 +402,11 @@ if __name__ == "__main__":
                 if punto not in seg.intersecciones:
                     seg.intersecciones.append(punto)
 
-    # Correr nuestro flamante motor consolidado
+    # AQUÍ ESTÁ LA MAGIA: Obligamos al código a repasar TODO por si acaso
+    print("── Pre-procesado: Red de seguridad para cruces internos y T-Junctions ──")
+    preprocesar_geometria(segmentos_globales, tolerancia_decimales=2)
+
+    # Correr nuestro motor de reconstrucción consolidado
     vertices_g, aristas_g, caras_g = reconstruir_overlay_y_caras(segmentos_globales)
 
     # ── Visualización Mejorada ──
