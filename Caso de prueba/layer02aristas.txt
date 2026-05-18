@@ -1,7 +1,0 @@
-Nombre  Origen  Pareja  Cara    Sigue   Antes
-s2_1    p2_1    s2_1b   f2_1    s2_2    s2_2b
-s2_2    p2_2    s2_2b   f2_1    s2_3    s2_1
-s2_3    p2_3    s2_3b   f2_1    s2_3b   s2_2
-s2_1b   p2_2    s2_1    f0      s2_1    s2_2
-s2_2b   p2_3    s2_2    f0      s2_1b   s2_3
-s2_3b   p2_4    s2_3    f0      s2_2b   s2_1b

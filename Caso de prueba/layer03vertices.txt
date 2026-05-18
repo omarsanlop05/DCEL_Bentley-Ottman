@@ -1,3 +1,0 @@
-Nombre  x       y       Incidente
-p3_1    0       8       s3_1
-p3_2    20      8       s3_1b

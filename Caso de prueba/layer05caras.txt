@@ -1,2 +1,0 @@
-Nombre  Interno Externo
-f5_1    [s5_1]  None

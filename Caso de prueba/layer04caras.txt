@@ -1,2 +1,0 @@
-Nombre  Interno Externo
-f4_1    [s4_1]  None

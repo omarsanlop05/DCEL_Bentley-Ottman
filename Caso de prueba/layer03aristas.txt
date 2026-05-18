@@ -1,3 +1,0 @@
-Nombre  Origen  Pareja  Cara    Sigue   Antes
-s3_1    p3_1    s3_1b   f3_1    s3_1b   s3_1b
-s3_1b   p3_2    s3_1    f0      s3_1    s3_1
