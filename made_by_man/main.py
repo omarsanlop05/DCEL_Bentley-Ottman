@@ -33,6 +33,7 @@ Ahora se deben indentificar las caras, y para esto se utilizando los ciclos.
 5. Se actualiza cada arista con cara a la que pertenece
 
 """
+from made_by_man.Caras import ConstructorCaras
 
 """
 Algoritmo fusión de listas de aristas / fusión de caras.
@@ -56,6 +57,8 @@ from Segmentacion import *
 import heapq
 import math
 import matplotlib.pyplot as plt
+
+import matplotlib.cm as cm
 
 # ─────────────────────────────────────────────────────────────
 # Estado global del barrido
@@ -291,6 +294,33 @@ def subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas
     todos_los_grupos = []   # lista de (grupos_ordenados, sig_orig[], ant_orig[])
 
     # ── PASADA 1: crear vértices, primas y pp; registrar mapas ──────────
+    ya_procesadas = set()
+
+    for clave, info in intersecciones_reales.items():
+        xi, yi = info["punto"].x, info["punto"].y
+
+        semiaristas_orig = []
+        vistas = set()
+        for seg in info["segmentos"]:
+            for arista in mapa_seg_arista.get(id(seg), []):
+                for a in (arista, arista.antiarista):
+                    if a and a.nombre not in vistas and a.nombre not in ya_procesadas:
+                        semiaristas_orig.append(a)
+                        vistas.add(a.nombre)
+
+        # Filtrar las que ya tienen origen en X
+        semiaristas_orig = [
+            a for a in semiaristas_orig
+            if not (math.isclose(a.origen.pt.x, xi, abs_tol=1e-7) and
+                    math.isclose(a.origen.pt.y, yi, abs_tol=1e-7))
+        ]
+
+        if not semiaristas_orig:
+            continue
+
+        # Registrar como procesadas
+        for a in semiaristas_orig:
+            ya_procesadas.add(a.nombre)
     for clave, info in intersecciones_reales.items():
         xi, yi = info["punto"].x, info["punto"].y
 
@@ -307,10 +337,32 @@ def subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas
         if not semiaristas_orig:
             continue
 
+        # Filtrar semi-aristas que ya tienen su origen en X
+        semiaristas_orig = [
+            a for a in semiaristas_orig
+            if not (math.isclose(a.origen.pt.x, xi, abs_tol=1e-7) and
+                    math.isclose(a.origen.pt.y, yi, abs_tol=1e-7))
+        ]
+
+        if not semiaristas_orig:
+            continue
+        print(f"\n  Intersección ({xi:.3f}, {yi:.3f}):")
+        for a in semiaristas_orig:
+            print(
+                f"    {a.nombre} | origen={a.origen.pt} | sig={a.siguiente.nombre if a.siguiente else None} | ant={a.anterior.nombre if a.anterior else None}")
+
         # Crear vértice X
-        _contador_x[0] += 1
-        vx = Vertice(f"X{_contador_x[0]}", Punto(xi, yi))
-        vertices_g[vx.nombre] = vx
+        vx = None
+        for v in vertices_g.values():
+            if math.isclose(v.pt.x, xi, abs_tol=1e-7) and \
+                    math.isclose(v.pt.y, yi, abs_tol=1e-7):
+                vx = v
+                break
+
+        if vx is None:
+            _contador_x[0] += 1
+            vx = Vertice(f"X{_contador_x[0]}", Punto(xi, yi))
+            vertices_g[vx.nombre] = vx
 
         # Crear primas y pp, calcular ángulo polar de cada primo
         grupos = []
@@ -369,6 +421,8 @@ def subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas
         # Eliminar originales del dict de aristas
         for g in grupos:
             aristas_g.pop(g["orig"].nombre, None)
+
+
 
         todos_los_grupos.append(grupos)
 
@@ -449,6 +503,48 @@ if __name__ == "__main__":
     print("\n── Paso 3: Subdivisión de aristas (dos pasadas) ──")
     subdividir_todas(intersecciones_reales, mapa_seg_arista, vertices_g, aristas_g)
 
+    # ── Paso 4 ───────────────────────────────────────────────
+
+    def recorrer_ciclo(arista_inicio):
+        puntos = []
+        actual = arista_inicio
+        visitadas = set()
+        while actual and actual.nombre not in visitadas:
+            visitadas.add(actual.nombre)
+            puntos.append((actual.origen.pt.x, actual.origen.pt.y))
+            actual = actual.siguiente
+        return puntos
+
+    print("\n── Paso 4: Rearme de caras ──")
+    constructor = ConstructorCaras(vertices_g, aristas_g)
+    caras_g = constructor.construir()
+    print("\n  Diagnóstico de caras:")
+    for nombre, cara in caras_g.items():
+        if nombre == "f_infinita":
+            continue
+        if cara.aristas_externas is None:
+            print(f"  ⚠️  {nombre}: aristas_externas = None")
+            continue
+        puntos = recorrer_ciclo(cara.aristas_externas)
+        xs = [p[0] for p in puntos]
+        ys = [p[1] for p in puntos]
+        print(f"  {nombre}: {len(puntos)} vértices | "
+              f"x=[{min(xs):.1f},{max(xs):.1f}] "
+              f"y=[{min(ys):.1f},{max(ys):.1f}]")
+
+
+
+    print("\n  Detalle de f0:")
+    cara = caras_g["f0"]
+    actual = cara.aristas_externas
+    visitadas = set()
+    while actual and actual.nombre not in visitadas:
+        visitadas.add(actual.nombre)
+        print(f"    {actual.nombre} | origen={actual.origen.pt} | sig={actual.siguiente.nombre}")
+        actual = actual.siguiente
+
+    print(f"  {len(caras_g)} caras encontradas (incluyendo f_infinita)")
+
     # Verificación de integridad
     print("\n  Verificación de integridad:")
     errores = 0
@@ -469,12 +565,33 @@ if __name__ == "__main__":
     # ── Visualización ────────────────────────────────────────
     fig, ax = plt.subplots(figsize=(10, 10))
     colores = ['blue', 'green', 'orange', 'purple', 'brown']
+    colores_caras = cm.Set3.colors
 
+
+    # Relleno de caras (zorder=1 para que quede debajo de todo)
+
+
+
+    for i, (nombre, cara) in enumerate(caras_g.items()):
+        if nombre == "f_infinita" or cara.aristas_externas is None:
+            continue
+        puntos = recorrer_ciclo(cara.aristas_externas)
+        if len(puntos) < 3:
+            continue
+        xs = [p[0] for p in puntos]
+        ys = [p[1] for p in puntos]
+        color = colores_caras[i % len(colores_caras)] + (0.3,)
+        ax.fill(xs, ys, color=color, zorder=1)
+        cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
+        ax.text(cx, cy, nombre, fontsize=7, ha='center', va='center', zorder=2)
+
+    # Segmentos originales por capa
     for seg in segmentos_globales:
         ax.plot([seg.p1.x, seg.p2.x], [seg.p1.y, seg.p2.y],
                 color=colores[seg.layer_id % len(colores)],
-                linewidth=2.5, alpha=0.18, label=f"Layer {seg.layer_id+1}")
+                linewidth=2.5, alpha=0.18, label=f"Layer {seg.layer_id + 1}")
 
+    # Aristas de la DCEL
     dibujadas = set()
     for nombre, a in aristas_g.items():
         if nombre in dibujadas: continue
@@ -485,6 +602,7 @@ if __name__ == "__main__":
         dibujadas.add(nombre)
         dibujadas.add(a.antiarista.nombre)
 
+    # Vértices
     for v in vertices_g.values():
         es_x = v.nombre.startswith('X')
         ax.plot(v.pt.x, v.pt.y, 'o',
@@ -498,7 +616,6 @@ if __name__ == "__main__":
               dict(zip(labels, handles)).keys(), loc='upper right')
     ax.set_aspect('equal')
     ax.grid(True, linestyle='--', alpha=0.4)
-    plt.title("Paso 3 – DCEL subdividida en intersecciones (vértices X en rojo)")
+    plt.title("Paso 4 – DCEL con caras")
     plt.tight_layout()
-    #plt.savefig("paso3_subdivision.png", dpi=150)
     plt.show()
