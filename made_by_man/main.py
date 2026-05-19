@@ -410,15 +410,54 @@ if __name__ == "__main__":
     # Correr nuestro motor de reconstrucción consolidado
     vertices_g, aristas_g, caras_g = reconstruir_overlay_y_caras(segmentos_globales)
 
-    with open("vertices.txt", "w") as f:
-        for clave, v in vertices_g.items():
-            f.write(f"{v.nombre}: {v.pt.x}, {v.pt.y}\n")
+    ##Archivos de vertices, aristas y caras
+    #######################################
+    with open("vertices.txt", "w", encoding="utf-8") as f:
+        f.write("Archivo de vértices\n")
+        f.write("#" * 30 + "\n")
+        f.write(f"{'Nombre':<10} {'x':<10} {'y':<10} {'Incidente':<10}\n")
+        f.write("#" * 30 + "\n")
 
+        for _, v in vertices_g.items():
+            nombre = v.nombre
+            x = v.pt.x
+            y = v.pt.y
+            incidente = v.arista_adyacente.nombre if v.arista_adyacente else "None"
 
+            f.write(f"{nombre:<10} {x:<10} {y:<10} {incidente:<10}\n")
 
-    with open("aristas.txt", "w") as f:
+    with open("aristas.txt", "w", encoding="utf-8") as f:
+        # Encabezado
+        f.write("Archivo de aristas\n")
+        f.write("#" * 40 + "\n")
+        f.write(f"{'Nombre':<10} {'Origen':<10} {'Pareja':<10} {'Cara':<10} {'Sigue':<10} {'Antes':<10}\n")
+        f.write("#" * 40 + "\n")
+
         for nombre, a in aristas_g.items():
-            f.write(str(a) + "\n")
+            origen = a.origen.nombre if a.origen else "None"
+            pareja = a.antiarista.nombre if a.antiarista else "None"
+            cara = a.cara.nombre if a.cara else "None"
+            siguiente = a.siguiente.nombre if a.siguiente else "None"
+            anterior = a.anterior.nombre if a.anterior else "None"
+
+            f.write(f"{nombre:<10} {origen:<10} {pareja:<10} {cara:<10} {siguiente:<10} {anterior:<10}\n")
+
+    with open("caras.txt", "w", encoding="utf-8") as f:
+        f.write("Archivo de caras\n")
+        f.write("#" * 22 + "\n")
+        f.write(f"{'Nombre':<10} {'Interno':<12} {'Externo':<10}\n")
+        f.write("#" * 22 + "\n")
+
+        for nombre, c in caras_g.items():
+            externo = c.aristas_externas.nombre if c.aristas_externas else "None"
+
+            # Las internas pueden ser varias, las ponemos entre corchetes
+            if c.aristas_internas:
+                interno = "[" + ", ".join(a.nombre for a in c.aristas_internas) + "]"
+            else:
+                interno = "None"
+
+            f.write(f"{nombre:<10} {interno:<12} {externo:<10}\n")
 
 
     # ── Visualización Mejorada ──
