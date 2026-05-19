@@ -69,6 +69,7 @@ class VisorDCEL:
 
         # Estado interactivo
         self._seleccionadas = {}   # nombre_cara -> (r, g, b)
+        self._cara_exterior_nombre = "__EXTERIOR__"
         self._color_idx     = 0
         self._pan_activo    = False
         self._pan_inicio    = (0, 0)
@@ -151,16 +152,38 @@ class VisorDCEL:
     # ─── hit-test ────────────────────────────────────────────────────────────
 
     def _cara_en(self, px, py):
-        """Cara bajo el cursor, o None."""
+        """
+        Devuelve la cara bajo el cursor.
+
+        Si el punto no cae dentro de ninguna cara interna,
+        entonces pertenece a la cara exterior (f0).
+        """
         for cara in reversed(self._caras_data):
             if _en_poligono(px, py, self._poli_px(cara["puntos"])):
                 return cara
-        return None
+
+        return {
+            "nombre": self._cara_exterior_nombre,
+            "puntos": [],
+            "centroide": (0, 0),
+        }
 
     # ─── dibujo ──────────────────────────────────────────────────────────────
 
     def _dibujar(self, surface, fuente_nombre, fuente_ayuda):
+
         surface.fill((255, 255, 255))
+
+        if self._cara_exterior_nombre in self._seleccionadas:
+            color_ext = self._seleccionadas[self._cara_exterior_nombre]
+            # 1. Pintamos TODO
+            surface.fill(color_ext)
+            # 2. "Recortamos" las caras internas
+            for cara in self._caras_data:
+                poli = self._poli_px(cara["puntos"])
+                if len(poli) >= 3:
+                    pygame.draw.polygon(surface, (255, 255, 255), poli)
+
 
         # 1. Relleno de caras seleccionadas
         for cara in self._caras_data:
@@ -205,7 +228,7 @@ class VisorDCEL:
 
         # 5. Contador (arriba a la derecha)
         conteo = fuente_ayuda.render(
-            f"Seleccionadas: {len(self._seleccionadas)} / {len(self._caras_data)}",
+            f"Seleccionadas: {len(self._seleccionadas)} / {len(self._caras_data) + 1}",
             True, (60, 60, 60))
         surface.blit(conteo, (self.ancho - conteo.get_width() - 10, 8))
 

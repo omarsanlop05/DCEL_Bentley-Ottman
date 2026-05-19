@@ -43,8 +43,8 @@ from ArbolBarrido import *
 from Segmentacion import *
 import heapq
 import math
+import os
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import matplotlib.cm as cm
 from PyGame import VisorDCEL
 
@@ -388,7 +388,9 @@ def reconstruir_overlay_y_caras(segmentos_globales):
 # ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     # Asegúrate de colocar las rutas correctas a los archivos
-    archivos = ["./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO" + str(i) for i in range(1, 3)]
+    #./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO
+    #archivos = ["./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO" + str(i) for i in range(1, 3)]
+    archivos = ["./output/global"]
 
     print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")
     segmentos_globales = extraer_todos_los_segmentos(archivos)
@@ -412,7 +414,9 @@ if __name__ == "__main__":
 
     ##Archivos de vertices, aristas y caras
     #######################################
-    with open("vertices.txt", "w", encoding="utf-8") as f:
+    # Crear carpeta output si no existe
+    os.makedirs("./output", exist_ok=True)
+    with open("./output/global.vertices", "w", encoding="utf-8") as f:
         f.write("Archivo de vértices\n")
         f.write("#" * 30 + "\n")
         f.write(f"{'Nombre':<10} {'x':<10} {'y':<10} {'Incidente':<10}\n")
@@ -426,7 +430,7 @@ if __name__ == "__main__":
 
             f.write(f"{nombre:<10} {x:<10} {y:<10} {incidente:<10}\n")
 
-    with open("aristas.txt", "w", encoding="utf-8") as f:
+    with open("./output/global.aristas", "w", encoding="utf-8") as f:
         # Encabezado
         f.write("Archivo de aristas\n")
         f.write("#" * 40 + "\n")
@@ -442,7 +446,7 @@ if __name__ == "__main__":
 
             f.write(f"{nombre:<10} {origen:<10} {pareja:<10} {cara:<10} {siguiente:<10} {anterior:<10}\n")
 
-    with open("caras.txt", "w", encoding="utf-8") as f:
+    with open("./output/global.caras", "w", encoding="utf-8") as f:
         f.write("Archivo de caras\n")
         f.write("#" * 22 + "\n")
         f.write(f"{'Nombre':<10} {'Interno':<12} {'Externo':<10}\n")
