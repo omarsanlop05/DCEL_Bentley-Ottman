@@ -46,6 +46,7 @@ import math
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.cm as cm
+from PyGame import VisorDCEL
 
 # ─────────────────────────────────────────────────────────────
 # Estado global del barrido
@@ -409,6 +410,17 @@ if __name__ == "__main__":
     # Correr nuestro motor de reconstrucción consolidado
     vertices_g, aristas_g, caras_g = reconstruir_overlay_y_caras(segmentos_globales)
 
+    with open("vertices.txt", "w") as f:
+        for clave, v in vertices_g.items():
+            f.write(f"{v.nombre}: {v.pt.x}, {v.pt.y}\n")
+
+
+
+    with open("aristas.txt", "w") as f:
+        for nombre, a in aristas_g.items():
+            f.write(str(a) + "\n")
+
+
     # ── Visualización Mejorada ──
     fig, ax = plt.subplots(figsize=(10, 10))
     colores_caras = cm.Set3.colors
@@ -448,3 +460,7 @@ if __name__ == "__main__":
     plt.title(f"Resultado Final DCEL: {len(caras_g)} Caras Identificadas")
     plt.tight_layout()
     plt.show()
+
+
+VisorDCEL(vertices_g, aristas_g, caras_g).ejecutar()
+
