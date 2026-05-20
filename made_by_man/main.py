@@ -391,7 +391,7 @@ if __name__ == "__main__":
     #./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO
     # ./Proyecto_SubdivisionesInteractivas/Sia/layer01
     # ./PaisajeLowPoly_DCEL/layer0
-    archivos = ["./Proyecto_SubdivisionesInteractivas/Sia/layer0" + str(i) for i in range(1, 2)]
+    archivos = ["./Proyecto_SubdivisionesInteractivas/Sia/layer0" + str(i) for i in range(1,2)]
     #archivos = ["./output/global"]
 
     print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")

@@ -117,6 +117,8 @@ class VisorDCEL:
 
         self._seleccionadas = {}
 
+        self._cara_exterior_nombre = "f_infinita"
+
         self._color_idx = 0
 
         self._pan_activo = False
@@ -144,7 +146,6 @@ class VisorDCEL:
     # ========================================================
 
     def _extraer_geometria(self):
-
         # ----------------------------------------------------
         # CARAS
         # ----------------------------------------------------
@@ -325,7 +326,11 @@ class VisorDCEL:
                 candidatas.append(cara)
 
         if not candidatas:
-            return None
+            return {
+                "nombre": self._cara_exterior_nombre,
+                "puntos": [],
+                "centroide": (0, 0),
+            }
 
         return min(
             candidatas,
@@ -336,50 +341,116 @@ class VisorDCEL:
     # DIBUJO
     # ========================================================
 
+    # ========================================================
+    # DIBUJO
+    # ========================================================
+
     def _dibujar(self, surface, fuente_nombre, fuente_ayuda):
+
+        # =====================================================
+        # FONDO BASE
+        # =====================================================
 
         surface.fill((255, 255, 255))
 
-        # ----------------------------------------------------
-        # CARAS
-        # ----------------------------------------------------
+        # =====================================================
+        # CARA EXTERIOR (f_infinita)
+        # =====================================================
+
+        if self._cara_exterior_nombre in self._seleccionadas:
+
+            color_ext = self._seleccionadas[
+                self._cara_exterior_nombre
+            ]
+
+            # -------------------------------------------------
+            # pintar TODO
+            # -------------------------------------------------
+
+            surface.fill(color_ext)
+
+            # -------------------------------------------------
+            # recortar TODAS las caras internas
+            # -------------------------------------------------
+
+            for cara in self._caras_data:
+
+                poli = self._poli_px(cara["puntos"])
+
+                if len(poli) >= 3:
+                    pygame.draw.polygon(
+                        surface,
+                        (255, 255, 255),
+                        poli
+                    )
+
+        # =====================================================
+        # CARAS INTERNAS
+        # =====================================================
 
         for cara in self._caras_data:
+
+            # -------------------------------------------------
+            # ignorar no seleccionadas
+            # -------------------------------------------------
 
             if cara["nombre"] not in self._seleccionadas:
                 continue
 
+            # -------------------------------------------------
+            # NO volver a dibujar f_infinita
+            # -------------------------------------------------
+
+            if cara["nombre"] == self._cara_exterior_nombre:
+                continue
+
             color = self._seleccionadas[cara["nombre"]]
+
+            # -------------------------------------------------
+            # superficie temporal alpha
+            # -------------------------------------------------
 
             temp = pygame.Surface(
                 (self.ancho, self.alto),
                 pygame.SRCALPHA
             )
 
-            # exterior
+            # -------------------------------------------------
+            # dibujar polígono exterior
+            # -------------------------------------------------
+
             pygame.draw.polygon(
                 temp,
                 (*color, 255),
                 self._poli_px(cara["puntos"])
             )
 
-            # holes geométricos
+            # -------------------------------------------------
+            # RECORTAR HOLES GEOMÉTRICOS
+            # -------------------------------------------------
+
             for hole in cara["holes"]:
 
-                pygame.draw.polygon(
-                    temp,
-                    (0, 0, 0, 0),
-                    self._poli_px(hole)
-                )
+                hole_px = self._poli_px(hole)
+
+                if len(hole_px) >= 3:
+                    pygame.draw.polygon(
+                        temp,
+                        (0, 0, 0, 0),
+                        hole_px
+                    )
+
+            # -------------------------------------------------
+            # pegar resultado
+            # -------------------------------------------------
 
             surface.blit(temp, (0, 0))
 
-        # ----------------------------------------------------
+        # =====================================================
         # ARISTAS
-        # ----------------------------------------------------
+        # =====================================================
 
         for (x1, y1), (x2, y2) in self._aristas_segs:
-
             pygame.draw.line(
                 surface,
                 (30, 30, 30),
@@ -388,13 +459,16 @@ class VisorDCEL:
                 1
             )
 
-        # ----------------------------------------------------
+        # =====================================================
         # NOMBRES
-        # ----------------------------------------------------
+        # =====================================================
 
         for cara in self._caras_data:
 
             if cara["nombre"] not in self._seleccionadas:
+                continue
+
+            if cara["nombre"] == self._cara_exterior_nombre:
                 continue
 
             cx, cy = self._m2p(*cara["centroide"])
@@ -409,9 +483,9 @@ class VisorDCEL:
 
             surface.blit(txt, rect)
 
-        # ----------------------------------------------------
+        # =====================================================
         # HUD
-        # ----------------------------------------------------
+        # =====================================================
 
         ayuda = [
             "Click izq : seleccionar",
@@ -423,7 +497,6 @@ class VisorDCEL:
         y0 = self.alto - 90
 
         for linea in ayuda:
-
             surf = fuente_ayuda.render(
                 linea,
                 True,
