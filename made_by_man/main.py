@@ -389,8 +389,10 @@ def reconstruir_overlay_y_caras(segmentos_globales):
 if __name__ == "__main__":
     # Asegúrate de colocar las rutas correctas a los archivos
     #./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO
-    #archivos = ["./Proyecto_SubdivisionesInteractivas/Arbusto/layerARBUSTO" + str(i) for i in range(1, 3)]
-    archivos = ["./output/global"]
+    # ./Proyecto_SubdivisionesInteractivas/Sia/layer01
+    # ./PaisajeLowPoly_DCEL/layer0
+    archivos = ["./Proyecto_SubdivisionesInteractivas/Sia/layer0" + str(i) for i in range(1, 2)]
+    #archivos = ["./output/global"]
 
     print("── Paso 1: Intersecciones (Bentley-Ottmann) ──")
     segmentos_globales = extraer_todos_los_segmentos(archivos)
